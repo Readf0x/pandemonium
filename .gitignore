@@ -1,0 +1,4 @@
+.direnv
+result
+tmp
+**/*_templ.go

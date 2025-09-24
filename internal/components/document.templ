@@ -1,0 +1,28 @@
+package components
+
+var deps = []string{
+	"htmx.org@2.0.7/dist/htmx.min.js",
+	"@tailwindcss/browser@4.1.13",
+}
+templ Document(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1">
+			<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+			if title == "" {
+				<title>Pandemonium</title>
+			} else {
+				<title>Pandemonium - { title }</title>
+			}
+			for _, dep := range deps {
+				<script src={ "https://cdn.jsdelivr.net/npm/" + dep }></script>
+			}
+		</head>
+		<body>
+			{ children... }
+		</body>
+	</html>
+}
+
