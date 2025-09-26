@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"htmx-go-server/internal/routes"
 	"net/http"
+	"slander/internal/routes"
 )
 
 func Route(mux *http.ServeMux) {
@@ -11,4 +11,3 @@ func Route(mux *http.ServeMux) {
 	mux.HandleFunc("/home", Page_Handler(routes.Home()))
 	mux.HandleFunc("/htmx/", HTMX_Handler)
 }
-

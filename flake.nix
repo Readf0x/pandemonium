@@ -15,7 +15,7 @@ rec {
         ...
       }: let
         info = {
-          projectName = "server"; # Don't forget to change this!
+          projectName = "slander"; # Don't forget to change this!
           # You can set the module name as well
           # moduleName = "github.com/example/${projectName}";
         };
@@ -31,6 +31,9 @@ rec {
                 delve
                 air
                 templ
+                nodejs
+                sqlite
+                sqlitebrowser
               ];
             };
             packages = {

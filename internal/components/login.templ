@@ -1,0 +1,9 @@
+package components
+
+import "slander/internal/systems"
+
+templ LogIn(token systems.SessionToken) {
+	<script>
+		localStorage.setItem("token", {{ token }})
+	</script>
+}

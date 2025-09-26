@@ -1,9 +1,16 @@
 package routes
 
-import "htmx-go-server/internal/components"
+import "slander/internal/components"
+import "slander/internal/database"
 
 templ Home() {
 	@components.Document("") {
-		<p>Mierde</p>
+		{{
+			user, err := database.GetUser("readf0x")
+			if err != nil {
+				return err
+			}
+		}}
+		@components.UI(user)
 	}
 }

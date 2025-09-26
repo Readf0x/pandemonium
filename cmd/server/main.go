@@ -1,9 +1,9 @@
 package main
 
 import (
-	"htmx-go-server/internal/handler"
 	"log"
 	"net/http"
+	"slander/internal/handler"
 )
 
 func main() {
@@ -11,4 +11,3 @@ func main() {
 	handler.Route(mux)
 	log.Fatal(http.ListenAndServe(":3000", mux))
 }
-

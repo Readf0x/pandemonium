@@ -1,4 +1,6 @@
 .direnv
 result
 tmp
+node_modules
+app.db
 **/*_templ.go

@@ -4,13 +4,14 @@ var deps = []string{
 	"htmx.org@2.0.7/dist/htmx.min.js",
 	"@tailwindcss/browser@4.1.13",
 }
+
 templ Document(title string) {
 	<!DOCTYPE html>
-	<html lang="en">
+	<html lang="en" class="bg-white dark:bg-gray-900">
 		<head>
-			<meta charset="UTF-8">
-			<meta name="viewport" content="width=device-width, initial-scale=1">
-			<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg"/>
 			if title == "" {
 				<title>Pandemonium</title>
 			} else {
@@ -19,10 +20,12 @@ templ Document(title string) {
 			for _, dep := range deps {
 				<script src={ "https://cdn.jsdelivr.net/npm/" + dep }></script>
 			}
+			<!-- <style type="text/tailwindcss">
+				@custom-variant dark (&:where(.dark, .dark *));
+			</style> -->
 		</head>
 		<body>
 			{ children... }
 		</body>
 	</html>
 }
-

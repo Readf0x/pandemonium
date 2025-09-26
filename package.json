@@ -1,0 +1,9 @@
+{
+  "name": "slander",
+  "version": "0.0.1",
+  "author": "readf0x",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "bootstrap-icons": "^1.13.1"
+  }
+}
