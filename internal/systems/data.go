@@ -29,17 +29,26 @@ var (
 		Comment:  "comment",
 		Repost:   "repost",
 	}
+	stringPostType = map[string]PostType{
+		"original": Original,
+		"comment":  Comment,
+		"repost":   Repost,
+	}
 )
 func (p PostType) String() string {
 	return postTypeString[p]
 }
+func PostTypeFromString(str string) PostType {
+	return stringPostType[str]
+}
 
 type Post struct {
-	ID       PostID
-	Parent   PostID
-	Owner    UserID
-	Body     string
-	Likes    int32
-	Shares   int32
-	Time     time.Time
+	ID           PostID
+	Parent       PostID
+	Owner        UserID
+	OriginalBody string
+	Body         string
+	Likes        int32
+	Shares       int32
+	Time         time.Time
 }

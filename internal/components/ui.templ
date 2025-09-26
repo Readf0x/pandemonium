@@ -17,6 +17,13 @@ templ UI(user systems.User) {
 	<div class="max-w-xl mx-auto border-x border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
 		<div id="postInput" class="hidden"></div>
 		@HomePost(user)
+		{{ posts, err := database.GetPage(10, 0) }}
+		if err != nil {
+			@ErrorBanner(err)
+		}
+		for _, post := range posts {
+			@Post(user, post)
+		}
 	</div>
 }
 
@@ -28,7 +35,7 @@ templ Reply(parent systems.Post, user systems.User) {
 
 var (
 	baseColors = "h-6 pl-2 pr-2 rounded-full text-sm"
-	enabled = "dark:text-gray-950 dark:bg-gray-100 dark:hover:bg-gray-300 text-gray-50 bg-gray-800 hover:bg-gray-700"
+	enabled = "dark:text-gray-950 dark:bg-gray-100 dark:hover:bg-gray-300 text-gray-50 bg-gray-800 hover:bg-gray-700 cursor-pointer"
 	disabled = "dark:text-gray-950 dark:bg-gray-300 text-gray-50 bg-gray-700"
 	errorColors = "dark:text-gray-950 bg-red-500 hover:bg-red-400 text-gray-50"
 )
@@ -41,14 +48,14 @@ templ Input(user systems.User) {
 		hx-swap="none"
 		hx-vals={ validation }
 	>
-		<!-- Header -->
+		// Header
 		<div class="flex justify-between">
-			<!-- User -->
+			// User
 			<div class="flex items-baseline space-x-2">
 				<span class="text-gray-800 dark:text-gray-200 font-semibold">{ user.DisplayName }</span>
 				<span class="text-gray-500 dark:text-gray-400">&#64;{ user.ID }</span>
 			</div>
-			<!-- Actions -->
+			// Actions
 			<div class="flex space-x-1">
 				@PostSendButton(nil)
 			</div>
@@ -93,13 +100,23 @@ templ Input(user systems.User) {
 }
 
 templ ErrorBanner(err error) {
-	<div id="errorBanner" hx-swap-oob="true" class="fixed flex inset-0 justify-center items-start">
-		<div class="flex items-center space-x-2 bg-red-500 border border-red-700 dark:border-red-300 rounded-sm w-2xl py-2 px-4 mt-5">
-			@Icon("exclamation-triangle")
-			<span class="flex-1">{ err.Error() }</span>
-			@Icon("exclamation-triangle")
+	if err != nil {
+		<div id="errorBanner" hx-swap-oob="true" class="fixed flex inset-0 justify-center items-start">
+			<div class="flex items-center space-x-2 bg-red-500 border border-red-700 dark:border-red-300 rounded-sm w-2xl py-2 px-4 mt-5">
+				@Icon("exclamation-triangle")
+				<span class="flex-1">{ err.Error() }</span>
+				@Icon("exclamation-triangle")
+			</div>
+			<script>
+				setTimeout(()=>{
+					htmx.ajax("GET", "/htmx/reset/errorBanner", {target:"#errorBanner", swap:"outerHTML"});
+					htmx.ajax("GET", "/htmx/reset/postSendButton", {target:"#postSendButton", swap:"outerHTML"});
+				} , 1000);
+			</script>
 		</div>
-	</div>
+	} else {
+	<div id="errorBanner" hx-swap-oob="true" class="hidden"></div>
+	}
 }
 
 templ PostSendButton(err error) {
@@ -166,8 +183,12 @@ templ FloatReply(parent systems.Post, user systems.User) {
 	</div>
 }
 
-templ Post(post systems.Post) {
-	<div class="flex space-x-3 p-4 border-b border-gray-200 dark:border-gray-700">
+script TogglePostMenu(id systems.PostID) {
+	htmx.toggleClass(htmx.find(htmx.find(`#post${id}`) , ".menu"), "hidden")
+}
+
+templ Post(user systems.User, post systems.Post) {
+	<div class="flex space-x-3 p-4 border-b border-gray-200 dark:border-gray-700" id={ fmt.Sprintf("post%d", post.ID) }>
 		// Avatar
 		{{
 			owner, err := database.GetUser(post.Owner)
@@ -179,7 +200,7 @@ templ Post(post systems.Post) {
 		// Content
 		<div class="flex-1">
 			// Header
-			<div class="flex justify-between">
+			<div class="flex relative justify-between">
 				// User
 				<div class="flex items-baseline space-x-2">
 					<span class="text-gray-800 dark:text-gray-200 font-semibold">{ owner.DisplayName }</span>
@@ -189,28 +210,62 @@ templ Post(post systems.Post) {
 				</div>
 				// Actions
 				<div class="flex space-x-1">
-					<button class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">@Icon("pencil")
-</button>
-					<button class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">@Icon("clock-history")
-</button>
-					<button class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">@Icon("three-dots")
-</button>
+					<button class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
+						@Icon("pencil")
+					</button>
+					<button class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
+						@Icon("clock-history")
+					</button>
+					<button hx-on:click={ TogglePostMenu(post.ID) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
+						@Icon("three-dots")
+					</button>
 				</div>
+				<ul class="menu absolute -right-2 mt-6 px-2 py-1 hidden bg-white dark:bg-gray-900 rounded-sm border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
+					if post.Owner == user.ID {
+						@MenuButton(fmt.Sprintf("/htmx/postaction/%d/delete", post.ID), "trash", "Delete", fmt.Sprintf("#post%d", post.ID))
+					} else {
+						@MenuButton(fmt.Sprintf("/htmx/postaction/%d/report", post.ID), "flag", "Report", fmt.Sprintf("#post%d", post.ID))
+					}
+				</ul>
 			</div>
 			// Body
 			<p class="mt-1 text-gray-800 dark:text-gray-200">
 				{ post.Body }
 			</p>
 			// Actions
-			<div class="grid grid-cols-4 text-gray-500 dark:text-gray-400 mt-3 max-w-md">
-				// [TODO] FIX COMMENT AND REPOST COUNT
+			<div class="pl-19 grid grid-cols-3 text-gray-500 dark:text-gray-400 mt-3 max-w-md">
+				{{
+					likeIcon := "heart"
+					likeLink := "like"
+					likeStyle := "hover:text-red-400 dark:hover:text-red-500"
+					liked, err := database.QueryLike(user.ID, post.ID)
+					if liked {
+						likeIcon = "heart-fill"
+						likeLink = "unlike"
+						likeStyle = "text-red-400 dark:text-red-500"
+					}
+				}}
+				if err != nil {
+					@ErrorBanner(err)
+				}
 				@PostActionButton(post.ID, "comment", "chat", 0, "hover:text-blue-300 dark:hover:text-blue-500")
 				@PostActionButton(post.ID, "repost", "repeat", 0, "hover:text-green-200 dark:hover:text-green-500")
-				@PostActionButton(post.ID, "like", "heart", post.Likes, "hover:text-red-400 dark:hover:text-red-500")
-				@PostActionButton(post.ID, "share", "share", post.Shares, "hover:text-yellow-200 dark:hover:text-yellow-500")
+				@PostActionButton(post.ID, likeLink, likeIcon, post.Likes, likeStyle)
 			</div>
 		</div>
 	</div>
+}
+
+templ MenuButton(endpoint string, icon string, name string, postEltID string) {
+	<li
+		hx-post={ endpoint }
+		hx-vals={ validation }
+		hx-swap="none"
+		class="cursor-pointer hover:text-gray-400 dark:hover:text-gray-300 flex items-center space-x-1"
+	>
+		@Icon(icon)
+		<span>{ name }</span>
+	</li>
 }
 
 templ PostActionButton(postID systems.PostID, action string, icon string, count int32, classes string) {
@@ -218,6 +273,7 @@ templ PostActionButton(postID systems.PostID, action string, icon string, count 
 		hx-post={ "/htmx/postaction/" + fmt.Sprint(postID) + "/" + action }
 		hx-trigger="click"
 		hx-swap="outerHTML"
+		hx-vals={ validation }
 		class={ "flex space-x-1 items-center " + classes }
 	>
 		@Icon(icon)

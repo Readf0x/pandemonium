@@ -38,10 +38,16 @@ func Asset_Handler(w http.ResponseWriter, r *http.Request) {
 	// log.Printf("Serving asset '%s' with Content-Type: %s", path, w.Header().Get("Content-Type"))
 	_, err = io.Copy(w, asset)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Println(err)
+		Error_Handler(err, w, r)
 		return
 	}
+}
+
+func Error_Handler(err error, w http.ResponseWriter, r *http.Request) {
+	// log.Printf("Problem: %v\n%s", err, debug.Stack())
+	w.Header().Set("HX-Retarget", "#errorBanner")
+	w.Header().Set("HX-Reswap", "outerHTML")
+	components.ErrorBanner(err).Render(r.Context(), w)
 }
 
 func Page_Handler(page templ.Component) func(http.ResponseWriter, *http.Request) {
@@ -74,7 +80,7 @@ func HTMX_Handler(w http.ResponseWriter, r *http.Request) {
 		err := CreatePost(r)
 		if err != nil {
 			components.PostSendButton(err).Render(r.Context(), w)
-			components.ErrorBanner(err).Render(r.Context(), w)
+			Error_Handler(err, w, r)
 			return
 		}
 		components.PostSendButton(systems.PostSent200).Render(r.Context(), w)
@@ -82,48 +88,90 @@ func HTMX_Handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func CreatePost(r *http.Request) error {
-	err := r.ParseForm()
-	if err != nil {
-		return err
+func ValidateUser(r *http.Request) (id systems.UserID, err error) {
+	if r.Form == nil {
+		err = r.ParseForm()
+		if err != nil {
+			return
+		}
 	}
-	id := systems.UserID(r.FormValue("user"))
+	id = systems.UserID(r.FormValue("user"))
 	token := systems.SessionToken(r.FormValue("token"))
 	tokens, err := database.GetUserTokens(id)
-	if err != nil {
-		return err
-	}
 	if !slices.Contains(tokens, token) {
-		return fmt.Errorf("Invalid token!")
+		err = fmt.Errorf("Invalid token!")
 	}
+	return
+}
+
+func CreatePost(r *http.Request) (err error) {
+	id, err := ValidateUser(r)
 	err = database.CreatePost(systems.Post{
 		Owner: id,
 		Body:  r.FormValue("body"),
 		Time:  time.Now(),
 	}, systems.Original)
-	return err
+	return
 }
 
 func PostAction(path []string, w http.ResponseWriter, r *http.Request) {
 	raw, err := strconv.ParseInt(path[2], 10, 32)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		Error_Handler(err, w, r)
+		return
 	}
 	postID := systems.PostID(raw)
+	userID, err := ValidateUser(r)
+	if err != nil {
+		Error_Handler(err, w, r)
+		return
+	}
 	switch path[3] {
 	case "comment":
 	case "like":
+		err := database.LikePost(userID, postID)
+		if err != nil {
+			Error_Handler(err, w, r)
+			return
+		}
 		count, err := database.GetLikeCount(postID)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			Error_Handler(err, w, r)
+			return
 		}
 		components.PostActionButton(postID, "unlike", "heart-fill", count, "text-red-400 dark:text-red-500").Render(r.Context(), w)
 	case "unlike":
+		err := database.UnlikePost(userID, postID)
+		if err != nil {
+			Error_Handler(err, w, r)
+			return
+		}
 		count, err := database.GetLikeCount(postID)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			Error_Handler(err, w, r)
+			return
 		}
 		components.PostActionButton(postID, "like", "heart", count, "hover:text-red-400 dark:hover:text-red-500").Render(r.Context(), w)
+	case "delete":
+		row := database.DB.QueryRow("select owner from posts where id = ?", postID)
+		var ownerID systems.UserID
+		err = row.Scan(&ownerID)
+		if err != nil {
+			Error_Handler(err, w, r)
+			return
+		}
+		if userID != ownerID {
+			Error_Handler(fmt.Errorf("Invalid permissions!"), w, r)
+			return
+		}
+		err = database.DeletePost(postID)
+		if err != nil {
+			Error_Handler(err, w, r)
+			return
+		}
+		w.Header().Set("HX-Retarget", fmt.Sprintf("#post%d", postID))
+		w.Header().Set("HX-Reswap", "outerHTML")
+		fmt.Fprint(w, "")
 	}
 }
 
@@ -131,5 +179,7 @@ func Reset_Handler(path []string, w http.ResponseWriter, r *http.Request) {
 	switch path[2] {
 	case "postSendButton":
 		components.PostSendButton(nil).Render(r.Context(), w)
+	case "errorBanner":
+		components.ErrorBanner(nil).Render(r.Context(), w)
 	}
 }
