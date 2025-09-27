@@ -11,14 +11,39 @@ templ Home() {
 				return err
 			}
 		}}
-		<div id="errorBanner" class="hidden"></div>
-		<div class="max-w-xl mx-auto border-x border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-			<div id="postInput" class="hidden"></div>
-			@components.HomePost(user)
-			{{ posts, err := database.GetPage(10, 0) }}
-			if err != nil {
-				@components.ErrorBanner(err)
+		{{ posts, err := database.GetPage(10, 0) }}
+		if err != nil {
+			@components.ErrorBanner(err)
+		} else {
+			<div id="errorBanner" class="hidden"/>
+		}
+		<script>
+			function EditWord(btn) {
+				wc = document.createElement("span")
+				wc.style.position = "absolute"
+				wc.style.visibility = "hidden"
+				inp = document.createElement("input")
+				inp.size = btn.innerText.length-1
+				inp.value = btn.innerText
+				inp.addEventListener("keydown", ev=>{
+					if (ev.key == " ") ev.preventDefault()
+				})
+				inp.addEventListener("input", ev=>{
+					inp.value = inp.value.replaceAll(" ", "")
+					wc.textContent = inp.value || " "
+					inp.style.width = `${Math.max(wc.offsetWidth, 20)}px`
+				})
+				document.body.appendChild(wc)
+				btn.replaceWith(inp)
+				wc.textContent = inp.value || " "
+				wc.style.font = getComputedStyle(inp).font
+				inp.style.width = `${wc.offsetWidth + 2}px`
 			}
+		</script>
+		<div class="max-w-xl mx-auto border-x border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+			<div id="postInput" class="hidden"/>
+			@components.HomePost(user)
+			<div id="newPost" class="hidden"/>
 			for _, post := range posts {
 				@components.Post(user, post)
 			}

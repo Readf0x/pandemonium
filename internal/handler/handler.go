@@ -114,9 +114,14 @@ func ValidateUser(r *http.Request) (id systems.UserID, err error) {
 
 func CreatePost(r *http.Request) (err error) {
 	id, err := ValidateUser(r)
+	body := r.FormValue("body")
+	if len(body) > 128 {
+		err = fmt.Errorf("Too many characters")
+		return
+	}
 	err = database.CreatePost(systems.Post{
 		Owner: id,
-		Body:  r.FormValue("body"),
+		Body:  body,
 		Time:  time.Now(),
 	}, systems.Original)
 	return
@@ -147,7 +152,7 @@ func PostAction(path []string, w http.ResponseWriter, r *http.Request) {
 			Error_Handler(err, w, r)
 			return
 		}
-		components.PostActionButton(postID, "unlike", "heart-fill", count, "text-red-400 dark:text-red-500").Render(r.Context(), w)
+		components.PostActionButton(fmt.Sprintf("/htmx/postaction/%d/%s", postID, "unlike"), "heart-fill", count, "text-red-400 dark:text-red-500").Render(r.Context(), w)
 	case "unlike":
 		err := database.UnlikePost(userID, postID)
 		if err != nil {
@@ -159,7 +164,7 @@ func PostAction(path []string, w http.ResponseWriter, r *http.Request) {
 			Error_Handler(err, w, r)
 			return
 		}
-		components.PostActionButton(postID, "like", "heart", count, "hover:text-red-400 dark:hover:text-red-500").Render(r.Context(), w)
+		components.PostActionButton(fmt.Sprintf("/htmx/postaction/%d/%s", postID, "like"), "heart", count, "hover:text-red-400 dark:hover:text-red-500").Render(r.Context(), w)
 	case "delete":
 		row := database.DB.QueryRow("select owner from posts where id = ?", postID)
 		var ownerID systems.UserID
@@ -180,6 +185,10 @@ func PostAction(path []string, w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("HX-Retarget", fmt.Sprintf("#post%d", postID))
 		w.Header().Set("HX-Reswap", "outerHTML")
 		fmt.Fprint(w, "")
+	case "editmode":
+		w.Header().Set("HX-Retarget", fmt.Sprintf("#post%d .body", postID))
+		w.Header().Set("HX-Reswap", "innerHTML")
+		components.EditModeBody(r.FormValue("body")).Render(r.Context(), w)
 	}
 }
 

@@ -25,7 +25,7 @@ func GetPost(id systems.PostID) (systems.Post, error) {
 		shares        int32
 		timedate      string
 	)
-	if systems.PostTypeFromString(post_type) == systems.Original {
+	if systems.PostTypeFromString(post_type) != systems.Original {
 		row = DB.QueryRow("select parent, owner, original_body, body, shares, time from posts where id = ?", id)
 		if err := row.Scan(&parent, &owner, &original_body, &body, &shares, &timedate); err != nil {
 			return systems.Post{}, err
@@ -122,7 +122,7 @@ func IncrementShares(id systems.PostID) (err error) {
 }
 
 func GetPage(size int, page int) (posts []systems.Post, err error) {
-	rows, err := DB.Query("select id, owner, body, shares, time from posts where parent is null order by time desc limit ? offset ?", size, page * size)
+	rows, err := DB.Query("select id, owner, original_body, body, shares, time from posts where parent is null order by time desc limit ? offset ?", size, page * size)
 	if err != nil {
 		return
 	}
@@ -130,13 +130,14 @@ func GetPage(size int, page int) (posts []systems.Post, err error) {
 
 	for rows.Next() {
 		var (
-			id       systems.PostID
-			owner    string
-			body     string
-			shares   int32
-			timedate string
+			id            systems.PostID
+			owner         string
+			original_body string
+			body          string
+			shares        int32
+			timedate      string
 		)
-		if err = rows.Scan(&id, &owner, &body, &shares, &timedate); err != nil {
+		if err = rows.Scan(&id, &owner, &original_body, &body, &shares, &timedate); err != nil {
 			return
 		}
 
@@ -151,12 +152,13 @@ func GetPage(size int, page int) (posts []systems.Post, err error) {
 		}
 
 		posts = append(posts, systems.Post{
-			ID:     systems.PostID(id),
-			Owner:  systems.UserID(owner),
-			Body:   body,
-			Likes:  likes,
-			Shares: shares,
-			Time:   t,
+			ID:           systems.PostID(id),
+			Owner:        systems.UserID(owner),
+			OriginalBody: original_body,
+			Body:         body,
+			Likes:        likes,
+			Shares:       shares,
+			Time:         t,
 		})
 	}
 

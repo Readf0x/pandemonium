@@ -179,8 +179,8 @@ templ FloatReply(parent systems.Post, user systems.User) {
 	</div>
 }
 
-script TogglePostMenu(id systems.PostID) {
-	htmx.toggleClass(htmx.find(htmx.find(`#post${id}`) , ".menu"), "hidden")
+script TogglePostElt(selector string, id systems.PostID) {
+	htmx.toggleClass(htmx.find(htmx.find(`#post${id}`) , selector), "hidden")
 }
 
 templ Post(user systems.User, post systems.Post) {
@@ -199,13 +199,17 @@ templ Post(user systems.User, post systems.Post) {
 			@PostHeader(owner, &post.Time) {
 				// Actions
 				<div class="flex space-x-1">
-					<button class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
+					{{
+						body, err := templ.JSONString(post.Body)
+						if err != nil { return err }
+					}}
+					<button hx-post={ fmt.Sprintf("/htmx/postaction/%d/editmode", post.ID) } hx-vals={ fmt.Sprintf(`%s,id:%d,body:%s}`, validation[:len(validation)-1], post.ID, body) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
 						@Icon("pencil")
 					</button>
-					<button class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
+					<button hx-on:click={ TogglePostElt(".originalbody", post.ID) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
 						@Icon("clock-history")
 					</button>
-					<button hx-on:click={ TogglePostMenu(post.ID) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
+					<button hx-on:click={ TogglePostElt(".menu", post.ID) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
 						@Icon("three-dots")
 					</button>
 				</div>
@@ -218,7 +222,10 @@ templ Post(user systems.User, post systems.Post) {
 				</ul>
 			}
 			// Body
-			<p class="mt-1 text-gray-800 dark:text-gray-200">
+			<p class="originalbody mt-1 text-gray-600 dark:text-gray-400 hidden">
+				{ post.OriginalBody }
+			</p>
+			<p class="body mt-1 text-gray-800 dark:text-gray-200">
 				{ post.Body }
 			</p>
 			// Actions
@@ -237,9 +244,9 @@ templ Post(user systems.User, post systems.Post) {
 				if err != nil {
 					@ErrorBanner(err)
 				}
-				@PostActionButton(post.ID, "comment", "chat", 0, "hover:text-blue-300 dark:hover:text-blue-500")
-				@PostActionButton(post.ID, "repost", "repeat", 0, "hover:text-green-200 dark:hover:text-green-500")
-				@PostActionButton(post.ID, likeLink, likeIcon, post.Likes, likeStyle)
+				@PostActionButton(fmt.Sprintf("/htmx/postaction/%d/comment", post.ID), "chat", 0, "hover:text-blue-300 dark:hover:text-blue-500")
+				@PostActionButton(fmt.Sprintf("/htmx/postaction/%d/repost", post.ID), "repeat", 0, "hover:text-green-200 dark:hover:text-green-500")
+				@PostActionButton(fmt.Sprintf("/htmx/postaction/%d/%s", post.ID, likeLink), likeIcon, post.Likes, likeStyle)
 			</div>
 		</div>
 	</div>
@@ -257,17 +264,19 @@ templ MenuButton(endpoint string, icon string, name string, postEltID string) {
 	</li>
 }
 
-templ PostActionButton(postID systems.PostID, action string, icon string, count int32, classes string) {
-	<button
-		hx-post={ "/htmx/postaction/" + fmt.Sprint(postID) + "/" + action }
-		hx-trigger="click"
-		hx-swap="outerHTML"
-		hx-vals={ validation }
-		class={ "flex space-x-1 items-center " + classes }
-	>
-		@Icon(icon)
-		<span>{ systems.Trunc32(count) }</span>
-	</button>
+templ PostActionButton(endpoint string, icon string, count int32, classes string) {
+	<span>
+		<button
+			hx-post={ endpoint }
+			hx-trigger="click"
+			hx-swap="outerHTML"
+			hx-vals={ validation }
+			class={ "flex space-x-1 items-center cursor-pointer px-2 " + classes }
+		>
+			@Icon(icon)
+			<span>{ systems.Trunc32(count) }</span>
+		</button>
+	</span>
 }
 
 templ Icon(name string) {
@@ -287,3 +296,13 @@ templ Icon(name string) {
 	}}
 	@templ.Raw(svg)
 }
+
+templ EditModeBody(body string) {
+	{{ words := strings.Split(body, " ") }}
+	for _, word := range words {
+		<button hx-on:click="EditWord(this)">
+			{ word }
+		</button>&#32;
+	}
+}
+
