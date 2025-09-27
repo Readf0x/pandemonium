@@ -48,6 +48,7 @@ func Setup(db *sql.DB) {
 		create table if not exists tokens (
 			user_id text,
 			token text,
+			expiry text not null,
 			primary key (user_id, token),
 			foreign key(user_id) references users(id)
 		)

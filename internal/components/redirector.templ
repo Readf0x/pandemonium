@@ -1,0 +1,10 @@
+package components
+
+templ Validation() {
+	<div
+		hx-post="/htmx/validate"
+		hx-vals={ validation }
+		hx-trigger="load"
+	/>
+}
+

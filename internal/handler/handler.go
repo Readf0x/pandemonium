@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slander/internal/components"
 	"slander/internal/database"
+	"slander/internal/routes"
 	"slander/internal/systems"
 	"slices"
 	"strconv"
@@ -59,7 +60,7 @@ func Page_Handler(page templ.Component) func(http.ResponseWriter, *http.Request)
 func Root_Handler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	if path == "/" {
-		http.Redirect(w, r, "/home", http.StatusSeeOther)
+		Page_Handler(routes.Root())(w, r)
 	} else {
 		http.NotFound(w, r)
 	}
@@ -85,6 +86,13 @@ func HTMX_Handler(w http.ResponseWriter, r *http.Request) {
 		}
 		components.PostSendButton(systems.PostSent200).Render(r.Context(), w)
 		components.ResetPostSendButton(systems.PostSent200).Render(r.Context(), w)
+	case "validate":
+		_, err := ValidateUser(r)
+		if err != nil {
+			w.Header().Set("HX-Redirect", "/login")
+			return
+		}
+		w.Header().Set("HX-Redirect", "/home")
 	}
 }
 

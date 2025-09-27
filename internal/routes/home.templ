@@ -11,6 +11,24 @@ templ Home() {
 				return err
 			}
 		}}
-		@components.UI(user)
+		<div id="errorBanner" class="hidden"></div>
+		<div class="max-w-xl mx-auto border-x border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+			<div id="postInput" class="hidden"></div>
+			@components.HomePost(user)
+			{{ posts, err := database.GetPage(10, 0) }}
+			if err != nil {
+				@components.ErrorBanner(err)
+			}
+			for _, post := range posts {
+				@components.Post(user, post)
+			}
+		</div>
 	}
 }
+
+templ Root() {
+	@components.Document("") {
+		@components.Validation()
+	}
+}
+

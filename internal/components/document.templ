@@ -15,14 +15,18 @@ templ Document(title string) {
 			if title == "" {
 				<title>Pandemonium</title>
 			} else {
-				<title>Pandemonium - { title }</title>
+				<title>{ title } - Pandemonium</title>
 			}
 			for _, dep := range deps {
 				<script src={ "https://cdn.jsdelivr.net/npm/" + dep }></script>
 			}
-			<!-- <style type="text/tailwindcss">
-				@custom-variant dark (&:where(.dark, .dark *));
-			</style> -->
+			<script>
+				const user = localStorage.user
+				const token = localStorage.token
+			</script>
+			// <style type="text/tailwindcss">
+			// 	@custom-variant dark (&:where(.dark, .dark *));
+			// </style>
 		</head>
 		<body>
 			{ children... }
