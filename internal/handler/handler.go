@@ -51,16 +51,40 @@ func Error_Handler(err error, w http.ResponseWriter, r *http.Request) {
 	components.ErrorBanner(err).Render(r.Context(), w)
 }
 
-func Page_Handler(page templ.Component) func(http.ResponseWriter, *http.Request) {
+func GenericRoute_Handler(page templ.Component) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		page.Render(r.Context(), w)
+	}
+}
+
+func Route_Handler(title string, page string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		routes.Page(title, page).Render(r.Context(), w)
+	}
+}
+
+func Page_Handler(w http.ResponseWriter, r *http.Request) {
+	path := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/")
+	userID, err := ValidateUser(r)
+	if err != nil {
+		w.Header().Set("HX-Redirect", "/login")
+		return
+	}
+	user, err := database.GetUser(userID)
+	if err != nil {
+		Error_Handler(err, w, r)
+		return
+	}
+	switch path[1] {
+	case "home":
+		routes.Home(user).Render(r.Context(), w)
 	}
 }
 
 func Root_Handler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	if path == "/" {
-		Page_Handler(routes.Root())(w, r)
+		GenericRoute_Handler(routes.Root())(w, r)
 	} else {
 		http.NotFound(w, r)
 	}
@@ -89,8 +113,7 @@ func HTMX_Handler(w http.ResponseWriter, r *http.Request) {
 	case "validate":
 		_, err := ValidateUser(r)
 		if err != nil {
-			log.Println(r.URL.Path)
-			if r.URL.Path != "/login" {
+			if r.FormValue("redirect") != "false" {
 				w.Header().Set("HX-Redirect", "/login")
 			}
 			return

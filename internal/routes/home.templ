@@ -1,55 +1,62 @@
 package routes
 
-import "slander/internal/components"
-import "slander/internal/database"
+import (
+	"slander/internal/components"
+	"slander/internal/database"
+	"slander/internal/systems"
+)
 
-templ Home() {
-	@components.Document("") {
-		{{
-			user, err := database.GetUser("readf0x")
-			if err != nil {
-				return err
-			}
-		}}
-		{{ posts, err := database.GetPage(10, 0) }}
-		if err != nil {
-			@components.ErrorBanner(err)
-		} else {
-			<div id="errorBanner" class="hidden"/>
-		}
-		<script>
-			function EditWord(inp, word) {
-				wc = document.createElement("span")
-				wc.style.position = "absolute"
-				wc.style.visibility = "hidden"
-				wc.style.font = getComputedStyle(inp).font
-				wc.textContent = word
-				document.body.appendChild(wc)
-				inp.style.width = `${wc.offsetWidth}px`
-				inp.addEventListener("keydown", ev=>{
-					if (ev.key == " ") ev.preventDefault()
-				})
-				inp.addEventListener("input", ev=>{
-					inp.value = inp.value.replaceAll(" ", "")
-					wc.textContent = inp.value || " "
-					inp.style.width = `${Math.max(wc.offsetWidth, 20)}px`
-				})
-			}
-		</script>
-		<div class="max-w-xl mx-auto border-x border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-			<div id="postInput" class="hidden"/>
-			@components.HomePost(user)
-			<div id="newPost" class="hidden"/>
-			for _, post := range posts {
-				@components.Post(user, post)
-			}
-		</div>
+templ Page(title string, page string) {
+	@components.Document(title) {
+		<div id="errorBanner" class="hidden"/>
+		<div
+			id="Page"
+			hx-post={ "/page/" + page }
+			hx-trigger="load"
+			hx-vals={ components.Validation("") }
+		/>
 	}
+}
+
+templ Home(user systems.User) {
+	{{ posts, err := database.GetPage(10, 0) }}
+	if err != nil {
+		@components.ErrorBanner(err)
+	} else {
+		<div id="errorBanner" class="hidden"/>
+	}
+	<script>
+		function EditWord(inp, word) {
+			wc = document.createElement("span")
+			wc.style.position = "absolute"
+			wc.style.visibility = "hidden"
+			wc.style.font = getComputedStyle(inp).font
+			wc.textContent = word
+			document.body.appendChild(wc)
+			inp.style.width = `${wc.offsetWidth}px`
+			inp.addEventListener("keydown", ev=>{
+				if (ev.key == " ") ev.preventDefault()
+			})
+			inp.addEventListener("input", ev=>{
+				inp.value = inp.value.replaceAll(" ", "")
+				wc.textContent = inp.value || " "
+				inp.style.width = `${Math.max(wc.offsetWidth, 20)}px`
+			})
+		}
+	</script>
+	<div class="max-w-xl mx-auto border-x border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+		<div id="postInput" class="hidden"/>
+		@components.HomePost(user)
+		<div id="newPost" class="hidden"/>
+		for _, post := range posts {
+			@components.Post(user, post)
+		}
+	</div>
 }
 
 templ Root() {
 	@components.Document("") {
-		@components.Validation()
+		@components.Redirect("")
 	}
 }
 

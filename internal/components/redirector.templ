@@ -1,9 +1,9 @@
 package components
 
-templ Validation() {
+templ Redirect(vals string) {
 	<div
 		hx-post="/htmx/validate"
-		hx-vals={ validation("") }
+		hx-vals={ Validation(vals) }
 		hx-trigger="load"
 	/>
 }

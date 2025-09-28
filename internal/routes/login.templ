@@ -4,7 +4,7 @@ import "slander/internal/components"
 
 templ Login() {
 	@components.Document("Login") {
-		@components.Validation()
+		@components.Redirect("redirect:false")
 		<span>Login</span>
 	}
 }
