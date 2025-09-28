@@ -10,7 +10,13 @@ import (
 	"time"
 )
 
-var validation = "js:{user:localStorage.user,token:localStorage.token}"
+func validation(args string) string {
+	c := ","
+	if args == "" {
+		c = ""
+	}
+	return fmt.Sprintf("js:{user:localStorage.user,token:localStorage.token%s%s}", c, args)
+}
 
 templ Reply(parent systems.Post, user systems.User) {
 	<div class="flex space-x-2 w-full">
@@ -35,7 +41,7 @@ templ Input(user systems.User) {
 		class="flex flex-col flex-1"
 		hx-post="/htmx/createpost"
 		hx-swap="none"
-		hx-vals={ validation }
+		hx-vals={ validation("") }
 	>
 		@PostHeader(user, nil) {
 			@PostSendButton(nil)
@@ -203,7 +209,7 @@ templ Post(user systems.User, post systems.Post) {
 						body, err := templ.JSONString(post.Body)
 						if err != nil { return err }
 					}}
-					<button hx-post={ fmt.Sprintf("/htmx/postaction/%d/editmode", post.ID) } hx-vals={ fmt.Sprintf(`%s,id:%d,body:%s}`, validation[:len(validation)-1], post.ID, body) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
+					<button hx-post={ fmt.Sprintf("/htmx/postaction/%d/editmode", post.ID) } hx-vals={ validation(fmt.Sprintf("id:%d,body:%s", post.ID, body)) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
 						@Icon("pencil")
 					</button>
 					<button hx-on:click={ TogglePostElt(".originalbody", post.ID) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
@@ -255,7 +261,7 @@ templ Post(user systems.User, post systems.Post) {
 templ MenuButton(endpoint string, icon string, name string, postEltID string) {
 	<li
 		hx-post={ endpoint }
-		hx-vals={ validation }
+		hx-vals={ validation("") }
 		hx-swap="none"
 		class="cursor-pointer hover:text-gray-400 dark:hover:text-gray-300 flex items-center space-x-1"
 	>
@@ -270,7 +276,7 @@ templ PostActionButton(endpoint string, icon string, count int32, classes string
 			hx-post={ endpoint }
 			hx-trigger="click"
 			hx-swap="outerHTML"
-			hx-vals={ validation }
+			hx-vals={ validation("") }
 			class={ "flex space-x-1 items-center cursor-pointer px-2 " + classes }
 		>
 			@Icon(icon)
@@ -299,10 +305,13 @@ templ Icon(name string) {
 
 templ EditModeBody(body string) {
 	{{ words := strings.Split(body, " ") }}
-	for _, word := range words {
-		<button hx-on:click="EditWord(this)">
-			{ word }
-		</button>&#32;
-	}
+	<div id="editBody">
+		for _, word := range words {
+			<input value={ word }/> &#32;
+		}
+	</div>
+	<script>
+		htmx.findAll("#editBody input").forEach(inp=>EditWord(inp))
+	</script>
 }
 

@@ -89,7 +89,10 @@ func HTMX_Handler(w http.ResponseWriter, r *http.Request) {
 	case "validate":
 		_, err := ValidateUser(r)
 		if err != nil {
-			w.Header().Set("HX-Redirect", "/login")
+			log.Println(r.URL.Path)
+			if r.URL.Path != "/login" {
+				w.Header().Set("HX-Redirect", "/login")
+			}
 			return
 		}
 		w.Header().Set("HX-Redirect", "/home")

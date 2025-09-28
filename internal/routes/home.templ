@@ -18,13 +18,14 @@ templ Home() {
 			<div id="errorBanner" class="hidden"/>
 		}
 		<script>
-			function EditWord(btn) {
+			function EditWord(inp, word) {
 				wc = document.createElement("span")
 				wc.style.position = "absolute"
 				wc.style.visibility = "hidden"
-				inp = document.createElement("input")
-				inp.size = btn.innerText.length-1
-				inp.value = btn.innerText
+				wc.style.font = getComputedStyle(inp).font
+				wc.textContent = word
+				document.body.appendChild(wc)
+				inp.style.width = `${wc.offsetWidth}px`
 				inp.addEventListener("keydown", ev=>{
 					if (ev.key == " ") ev.preventDefault()
 				})
@@ -33,11 +34,6 @@ templ Home() {
 					wc.textContent = inp.value || " "
 					inp.style.width = `${Math.max(wc.offsetWidth, 20)}px`
 				})
-				document.body.appendChild(wc)
-				btn.replaceWith(inp)
-				wc.textContent = inp.value || " "
-				wc.style.font = getComputedStyle(inp).font
-				inp.style.width = `${wc.offsetWidth + 2}px`
 			}
 		</script>
 		<div class="max-w-xl mx-auto border-x border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
