@@ -102,7 +102,19 @@ func HTMX_Handler(w http.ResponseWriter, r *http.Request) {
 	case "postaction":
 		PostAction(path, w, r)
 	case "createpost":
-		err := CreatePost(r)
+		userID, postID, err := CreatePost(r)
+		if err != nil {
+			components.PostSendButton(err, true).Render(r.Context(), w)
+			Error_Handler(err, w, r)
+			return
+		}
+		user, err := database.GetUser(userID)
+		if err != nil {
+			components.PostSendButton(err, true).Render(r.Context(), w)
+			Error_Handler(err, w, r)
+			return
+		}
+		post, err := database.GetPost(postID)
 		if err != nil {
 			components.PostSendButton(err, true).Render(r.Context(), w)
 			Error_Handler(err, w, r)
@@ -110,6 +122,7 @@ func HTMX_Handler(w http.ResponseWriter, r *http.Request) {
 		}
 		components.PostSendButton(systems.PostSent200, true).Render(r.Context(), w)
 		components.ResetPostSendButton(systems.PostSent200, true).Render(r.Context(), w)
+		components.Post(user, post, true).Render(r.Context(), w)
 	case "validate":
 		_, err := ValidateUser(r)
 		if err != nil {
@@ -167,8 +180,8 @@ func ValidateUser(r *http.Request) (id systems.UserID, err error) {
 	return
 }
 
-func CreatePost(r *http.Request) (err error) {
-	id, err := ValidateUser(r)
+func CreatePost(r *http.Request) (userID systems.UserID, postID systems.PostID, err error) {
+	userID, err = ValidateUser(r)
 	body := r.FormValue("body")
 	if systems.SpeechFilter.IsProfane(body) {
 		err = fmt.Errorf("This content may violate our terms of service.")
@@ -178,8 +191,8 @@ func CreatePost(r *http.Request) (err error) {
 		err = fmt.Errorf("Too many characters")
 		return
 	}
-	err = database.CreatePost(systems.Post{
-		Owner: id,
+	postID, err = database.CreatePost(systems.Post{
+		Owner: userID,
 		Body:  body,
 		Time:  time.Now(),
 	}, systems.Original)
@@ -244,6 +257,10 @@ func PostAction(path []string, w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("HX-Retarget", fmt.Sprintf("#post%d", postID))
 		w.Header().Set("HX-Reswap", "outerHTML")
 		fmt.Fprint(w, "")
+	case "resetbody":
+		w.Header().Set("HX-Retarget", fmt.Sprintf("#post%d .body", postID))
+		w.Header().Set("HX-Reswap", "innerHTML")
+		fmt.Fprint(w, r.FormValue("body"))
 	case "editmode":
 		w.Header().Set("HX-Retarget", fmt.Sprintf("#post%d .body", postID))
 		w.Header().Set("HX-Reswap", "innerHTML")

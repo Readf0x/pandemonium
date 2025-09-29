@@ -20,7 +20,7 @@ func Validation(args string) string {
 
 templ Reply(parent systems.Post, user systems.User) {
 	<div class="flex space-x-2 w-full">
-		@Input(user)
+		{ children... }
 	</div>
 }
 
@@ -186,7 +186,9 @@ templ FloatPost(user systems.User) {
 templ FloatReply(parent systems.Post, user systems.User) {
 	<div id="postInput" class="fixed flex inset-0 justify-center items-start">
 		<div class="flex space-x-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-sm w-2xl p-4 mt-5">
-			@Reply(parent, user)
+			@Reply(parent, user) {
+				@Input(user)
+			}
 		</div>
 	</div>
 }
@@ -194,9 +196,22 @@ templ FloatReply(parent systems.Post, user systems.User) {
 script TogglePostElt(selector string, id systems.PostID) {
 	htmx.toggleClass(htmx.find(htmx.find(`#post${id}`) , selector), "hidden")
 }
+script TogglePostElts(selector string, id systems.PostID) {
+	htmx.findAll(htmx.find(`#post${id}`) , selector).forEach(elt=>{
+		htmx.toggleClass(elt, "hidden")
+	})
+}
 
-templ Post(user systems.User, post systems.Post) {
-	<div class="flex space-x-3 p-4 border-b border-gray-200 dark:border-gray-700" id={ fmt.Sprintf("post%d", post.ID) }>
+templ Post(user systems.User, post systems.Post, oob bool) {
+	<div
+		class="flex space-x-3 p-4 border-b border-gray-200 dark:border-gray-700"
+		if oob {
+			hx-swap-oob="true"
+			id="newPost"
+		} else {
+			id={ fmt.Sprintf("post%d", post.ID) }
+		}
+	>
 		// Avatar
 		{{
 			owner, err := database.GetUser(post.Owner)
@@ -215,13 +230,33 @@ templ Post(user systems.User, post systems.Post) {
 						body, err := templ.JSONString(post.Body)
 						if err != nil { return err }
 					}}
-					<button hx-post={ fmt.Sprintf("/htmx/postaction/%d/editmode", post.ID) } hx-vals={ Validation(fmt.Sprintf("id:%d,body:%s", post.ID, body)) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
+					<button
+						hx-post={ fmt.Sprintf("/htmx/postaction/%d/resetbody", post.ID) }
+						hx-vals={ Validation(fmt.Sprintf(`id:%d,body:%s`, post.ID, body)) }
+						hx-on:click={ TogglePostElts(".editing", post.ID) }
+						class="editing text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer hidden"
+					>
+						@Icon("x-lg")
+					</button>
+					<button
+						id="editButton"
+						hx-post={ fmt.Sprintf("/htmx/postaction/%d/editmode", post.ID) }
+						hx-vals={ Validation(fmt.Sprintf(`id:%d,body:%s`, post.ID, body)) }
+						hx-on:click={ TogglePostElts(".editing", post.ID) }
+						class="editing text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer"
+					>
 						@Icon("pencil")
 					</button>
-					<button hx-on:click={ TogglePostElt(".originalbody", post.ID) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
+					<button
+						hx-on:click={ TogglePostElt(".originalbody", post.ID) }
+						class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer"
+					>
 						@Icon("clock-history")
 					</button>
-					<button hx-on:click={ TogglePostElt(".menu", post.ID) } class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer">
+					<button
+						hx-on:click={ TogglePostElt(".menu", post.ID) }
+						class="text-gray-500 dark:text-gray-400 h-4 w-4 text-sm hover:text-gray-400 dark:hover:text-gray-300 cursor-pointer"
+					>
 						@Icon("three-dots")
 					</button>
 				</div>
@@ -312,8 +347,6 @@ templ Icon(name string) {
 script SendEdit(id systems.PostID) {
 }
 
-var EditWord = templ.NewOnceHandle()
-
 templ EditModeBody(body string, id systems.PostID) {
 	{{ words := strings.Split(body, " ") }}
 	<div id="editBody">
@@ -403,3 +436,33 @@ templ Login() {
 		</script>
 	</form>
 }
+
+templ PostList(user systems.User, size int, page int, filters string) {
+	{{ posts, end, err := database.GetPage(10, 0, filters) }}
+	if err != nil {
+		@ErrorBanner(err)
+	}
+	for _, post := range posts {
+		@Post(user, post, false)
+	}
+	if end {
+		<div class="flex flex-col items-center py-5 text-gray-400 dark:text-gray-600">
+			<span>You've reached the end</span>
+			<pre
+				class="text-sm/4 font-[Roboto,sans-serif]"
+				id="kao"
+			>{Kao}</pre>
+		</div>
+	} else {
+		<div
+			hx-post="/htmx/page"
+			hx-trigger="revealed"
+			hx-vals={ Validation(fmt.Sprintf(`filters:"%s"`, filters)) }
+		/>
+	}
+}
+
+var Kao = `            へ           ╱| 
+      ૮  -   ՛ )  ♡  (`+"`"+`   -  7.   
+       /   ⁻  ៸|         |、⁻〵
+乀 (ˍ ل ل        じしˍ,)ノ`

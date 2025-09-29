@@ -2,7 +2,6 @@ package routes
 
 import (
 	"slander/internal/components"
-	"slander/internal/database"
 	"slander/internal/systems"
 )
 
@@ -19,12 +18,6 @@ templ Page(title string, page string) {
 }
 
 templ Home(user systems.User) {
-	{{ posts, err := database.GetPage(10, 0) }}
-	if err != nil {
-		@components.ErrorBanner(err)
-	} else {
-		<div id="errorBanner" class="hidden"/>
-	}
 	<script>
 		function EditWord(inp, id) {
 			wc = document.createElement("span")
@@ -43,6 +36,15 @@ templ Home(user systems.User) {
 				wc.textContent = inp.value || " "
 				inp.style.width = `${Math.max(wc.offsetWidth, 20)}px`
 			})
+			inp.addEventListener("focus", ev=>{
+				htmx.findAll("#editBody input").forEach(elt=>{
+					if (elt != inp) {
+						elt.value = elt.getAttribute("value")
+						wc.textContent = elt.value
+						elt.style.width = `${wc.offsetWidth}px`
+					}
+				})
+			})
 		}
 		function SendEdit(id) {
 			let body = Array.from(htmx.findAll("#editBody input")).map(x=>x.value).join(" ")
@@ -60,18 +62,7 @@ templ Home(user systems.User) {
 		<div id="postInput" class="hidden"/>
 		@components.HomePost(user)
 		<div id="newPost" class="hidden"/>
-		for _, post := range posts {
-			@components.Post(user, post)
-		}
-		if len(posts) < 10 {
-			<div class="flex flex-col items-center py-5 text-gray-400 dark:text-gray-600">
-				<span>You've reached the end</span>
-				<pre
-					class="text-sm/4 font-[Roboto,sans-serif]"
-					id="kao"
-				>{kao}</pre>
-			</div>
-		}
+		@components.PostList(user, 10, 0, "parent is null")
 	</div>
 }
 
@@ -80,9 +71,4 @@ templ Root() {
 		@components.Redirect("")
 	}
 }
-
-var kao = `            へ           ╱| 
-      ૮  -   ՛ )  ♡  (`+"`"+`   -  7.   
-       /   ⁻  ៸|         |、⁻〵
-乀 (ˍ ل ل        じしˍ,)ノ`
 

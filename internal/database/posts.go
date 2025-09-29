@@ -1,6 +1,7 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 	"slander/internal/systems"
 	"strings"
@@ -65,9 +66,10 @@ func PostCount() (count int32, err error) {
 	return
 }
 
-func CreatePost(post systems.Post, post_type systems.PostType) (err error) {
+func CreatePost(post systems.Post, post_type systems.PostType) (id systems.PostID, err error) {
+	var res sql.Result
 	if post_type != systems.Original {
-		_, err = DB.Exec(
+		res, err = DB.Exec(
 			"insert into posts (parent, owner, original_body, body, shares, time, post_type) values (?, ?, ?, ?, ?, ?, ?)",
 			post.Parent,
 			post.Owner,
@@ -78,7 +80,7 @@ func CreatePost(post systems.Post, post_type systems.PostType) (err error) {
 			post_type.String(),
 		)
 	} else {
-		_, err = DB.Exec(
+		res, err = DB.Exec(
 			"insert into posts (owner, original_body, body, shares, time, post_type) values (?, ?, ?, ?, ?, ?)",
 			post.Owner,
 			post.Body,
@@ -88,6 +90,8 @@ func CreatePost(post systems.Post, post_type systems.PostType) (err error) {
 			post_type.String(),
 		)
 	}
+	l, err := res.LastInsertId()
+	id = systems.PostID(l)
 	return
 }
 
@@ -123,14 +127,25 @@ func IncrementShares(id systems.PostID) (err error) {
 	return
 }
 
-func GetPage(size int, page int) (posts []systems.Post, err error) {
-	rows, err := DB.Query("select id, owner, original_body, body, shares, time from posts where parent is null order by time desc limit ? offset ?", size, page * size)
+func GetPage(size int, page int, filters string) (posts []systems.Post, end bool, err error) {
+	rows, err := DB.Query(
+		fmt.Sprintf("select id, owner, original_body, body, shares, time from posts where %s order by time desc limit ? offset ?", filters),
+		size+1,
+		page * size,
+	)
 	if err != nil {
 		return
 	}
 	defer rows.Close()
 
+	end = true
+	count := 0
 	for rows.Next() {
+		if count == size {
+			end = false
+			break
+		}
+
 		var (
 			id            systems.PostID
 			owner         string
@@ -145,12 +160,12 @@ func GetPage(size int, page int) (posts []systems.Post, err error) {
 
 		t, err := time.Parse(time.RFC3339, timedate)
 		if err != nil {
-			return posts, err
+			return posts, end, err
 		}
 
 		likes, err := GetLikeCount(id)
 		if err != nil {
-			return posts, err
+			return posts, end, err
 		}
 
 		posts = append(posts, systems.Post{
@@ -162,6 +177,8 @@ func GetPage(size int, page int) (posts []systems.Post, err error) {
 			Shares:       shares,
 			Time:         t,
 		})
+
+		count++
 	}
 
 	err = rows.Err()
