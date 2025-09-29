@@ -26,21 +26,33 @@ templ Home(user systems.User) {
 		<div id="errorBanner" class="hidden"/>
 	}
 	<script>
-		function EditWord(inp, word) {
+		function EditWord(inp, id) {
 			wc = document.createElement("span")
 			wc.style.position = "absolute"
 			wc.style.visibility = "hidden"
 			wc.style.font = getComputedStyle(inp).font
-			wc.textContent = word
+			wc.textContent = inp.value
 			document.body.appendChild(wc)
 			inp.style.width = `${wc.offsetWidth}px`
 			inp.addEventListener("keydown", ev=>{
 				if (ev.key == " ") ev.preventDefault()
+				if (ev.key == "Enter") SendEdit(id)
 			})
 			inp.addEventListener("input", ev=>{
 				inp.value = inp.value.replaceAll(" ", "")
 				wc.textContent = inp.value || " "
 				inp.style.width = `${Math.max(wc.offsetWidth, 20)}px`
+			})
+		}
+		function SendEdit(id) {
+			let body = Array.from(htmx.findAll("#editBody input")).map(x=>x.value).join(" ")
+			htmx.ajax("POST", `/htmx/postaction/${id}/edit`, {
+				swap: "none",
+				values: {
+					user: localStorage.user,
+					token: localStorage.token,
+					body
+				}
 			})
 		}
 	</script>
@@ -51,6 +63,15 @@ templ Home(user systems.User) {
 		for _, post := range posts {
 			@components.Post(user, post)
 		}
+		if len(posts) < 10 {
+			<div class="flex flex-col items-center py-5 text-gray-400 dark:text-gray-600">
+				<span>You've reached the end</span>
+				<pre
+					class="text-sm/4 font-[Roboto,sans-serif]"
+					id="kao"
+				>{kao}</pre>
+			</div>
+		}
 	</div>
 }
 
@@ -59,4 +80,9 @@ templ Root() {
 		@components.Redirect("")
 	}
 }
+
+var kao = `            へ           ╱| 
+      ૮  -   ՛ )  ♡  (`+"`"+`   -  7.   
+       /   ⁻  ៸|         |、⁻〵
+乀 (ˍ ل ل        じしˍ,)ノ`
 

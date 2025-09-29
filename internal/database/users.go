@@ -1,6 +1,12 @@
 package database
 
-import "slander/internal/systems"
+import (
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
+	"slander/internal/systems"
+	"time"
+)
 
 func UserExists(id systems.UserID) (exists bool, err error) {
 	row := DB.QueryRow("select exists(select 1 from users where id = ?)", id)
@@ -25,7 +31,7 @@ func GetUser(id systems.UserID) (systems.User, error) {
 }
 
 func GetUserTokens(id systems.UserID) (tokens []systems.SessionToken, err error) {
-	rows, err := DB.Query("select token from tokens where user_id = ?", id)
+	rows, err := DB.Query("select token, expiry from tokens where user_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
@@ -33,13 +39,31 @@ func GetUserTokens(id systems.UserID) (tokens []systems.SessionToken, err error)
 
 	for rows.Next() {
 		var token string
-		if err = rows.Scan(&token); err != nil {
+		var expiry string
+		if err = rows.Scan(&token, &expiry); err != nil {
 			return
+		}
+		t, err := time.Parse(time.RFC3339, expiry)
+		if err != nil {
+			return tokens, err
+		}
+		if t.Before(time.Now()) {
+			_, err = DB.Exec("delete from tokens where user_id = ? and token = ?", id, token)
 		}
 		tokens = append(tokens, systems.SessionToken(token))
 	}
 
 	err = rows.Err()
+	return
+}
+
+func GenerateToken(id systems.UserID) (token systems.SessionToken, err error) {
+	now := time.Now()
+	expiry := now.Add(7*24*time.Hour)
+	t := sha256.Sum224(fmt.Append([]byte{}, expiry.Unix() * now.Unix(), id))
+	b := base64.StdEncoding.EncodeToString(t[:])
+	token = systems.SessionToken(b)
+	_, err = DB.Exec("insert into tokens (user_id, token, expiry) values (?, ?, ?)", id, token, expiry.Format(time.RFC3339))
 	return
 }
 

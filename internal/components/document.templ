@@ -23,6 +23,16 @@ templ Document(title string) {
 			<script>
 				const user = localStorage.user
 				const token = localStorage.token
+
+				// setStorage
+				const SS=()=>{
+					localStorage.user = "readf0x"
+					localStorage.token = "debug"
+				}
+				// clearStorage
+				const CS=()=>{
+					localStorage.clear()
+				}
 			</script>
 			// <style type="text/tailwindcss">
 			// 	@custom-variant dark (&:where(.dark, .dark *));

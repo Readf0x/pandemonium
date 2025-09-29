@@ -25,7 +25,7 @@ templ Reply(parent systems.Post, user systems.User) {
 }
 
 var (
-	baseColors = "h-6 pl-2 pr-2 rounded-full text-sm"
+	baseColors = "h-6 pl-2 pr-2 rounded-full"
 	enabled = "dark:text-gray-950 dark:bg-gray-100 dark:hover:bg-gray-300 text-gray-50 bg-gray-800 hover:bg-gray-700 cursor-pointer"
 	disabled = "dark:text-gray-950 dark:bg-gray-300 text-gray-50 bg-gray-700"
 	errorColors = "dark:text-gray-950 bg-red-500 hover:bg-red-400 text-gray-50"
@@ -44,7 +44,7 @@ templ Input(user systems.User) {
 		hx-vals={ Validation("") }
 	>
 		@PostHeader(user, nil) {
-			@PostSendButton(nil)
+			@PostSendButton(nil, false)
 		}
 		<textarea
 			id="postTextArea"
@@ -73,7 +73,6 @@ templ Input(user systems.User) {
 			textarea.addEventListener("keydown", ev=>{
 				if (textarea.value.length > 128) {
 					if (ev.key != "Backspace") {
-						console.log(ev.key)
 						ev.preventDefault()
 					}
 				}
@@ -81,7 +80,7 @@ templ Input(user systems.User) {
 			textarea.addEventListener("input", updateButton);
 		</script>
 		// reset after successful post
-		@ResetPostSendButton(nil)
+		@ResetPostSendButton(nil, false)
 	</form>
 }
 
@@ -121,7 +120,7 @@ templ ErrorBanner(err error) {
 	}
 }
 
-templ PostSendButton(err error) {
+templ PostSendButton(err error, oob bool) {
 	{{
 		var colors string
 		switch err {
@@ -134,9 +133,11 @@ templ PostSendButton(err error) {
 		}
 	}}
 	<button
-		class={ baseColors + " " + colors }
+		class={ baseColors + " text-sm " + colors }
 		id="postSendButton"
-		hx-swap-oob="true"
+		if oob {
+			hx-swap-oob="true"
+		}
 		disabled?={ err == nil || err == systems.PostSent200 }
 	>
 		switch err {
@@ -152,14 +153,19 @@ templ PostSendButton(err error) {
 	</button>
 }
 
-templ ResetPostSendButton(err error) {
+templ ResetPostSendButton(err error, oob bool) {
 		if err == systems.PostSent200 {
 			<script id="resetPostSendButton" hx-swap-oob="true">
 				textarea.value = "";
 				setTimeout(()=>htmx.ajax("GET", "/htmx/reset/postSendButton", {target:"#postSendButton", swap:"outerHTML"}) , 1000);
 			</script>
 		} else {
-			<script id="resetPostSendButton" hx-swap-oob="true"></script>
+			<script
+				id="resetPostSendButton"
+				if oob {
+					hx-swap-oob="true"
+				}
+			></script>
 		}
 }
 
@@ -303,7 +309,12 @@ templ Icon(name string) {
 	@templ.Raw(svg)
 }
 
-templ EditModeBody(body string) {
+script SendEdit(id systems.PostID) {
+}
+
+var EditWord = templ.NewOnceHandle()
+
+templ EditModeBody(body string, id systems.PostID) {
 	{{ words := strings.Split(body, " ") }}
 	<div id="editBody">
 		for _, word := range words {
@@ -311,7 +322,84 @@ templ EditModeBody(body string) {
 		}
 	</div>
 	<script>
-		htmx.findAll("#editBody input").forEach(inp=>EditWord(inp))
+		htmx.findAll("#editBody input").forEach(inp=>EditWord(inp,{{id}}))
 	</script>
 }
 
+templ Logo() {
+	<div class="place-content-center flex">
+		<img src="/assets/favicon.svg" class="w-40"/>
+	</div>
+}
+
+var baseLogin = "rounded-full self-center w-auto px-4 mt-4 text-lg"
+
+templ LoginButton(err error) {
+	{{
+		var colors string
+		switch err {
+		case nil:
+			colors = disabled
+		default:
+			colors = errorColors
+		}
+	}}
+	<button
+		class={ baseLogin + " " + colors }
+		id="submit"
+		type="submit"
+		hx-swap-oob="true"
+		disabled
+	>
+		switch err {
+			case nil:
+				Login
+			default:
+				@Icon("exclamation-triangle")
+				Error
+		}
+	</button>
+}
+
+templ Login() {
+	<form
+		hx-post="/htmx/login"
+		hx-swap="none"
+		class="flex flex-col place-content-center text-gray-800 dark:text-gray-200"
+	>
+		<span class="text-center text-3xl sm:text-xl">Login</span>
+		<label class="pl-1" for="username">Username:</label>
+		<input type="text" name="username" class="border border-gray-600 dark:border-gray-400 rounded-full text-lg text-center"/>
+		<label class="pl-1 mt-3" for="password">Password:</label>
+		<input type="password" name="password" class="border border-gray-600 dark:border-gray-400 rounded-full text-lg text-center"/>
+		@LoginButton(nil)
+		<script>
+			const btn = ()=>document.querySelector("[type='submit']");
+			const textarea = document.querySelector("[name='password']");
+
+			const enabled = "{{ enabled }}".split(" ");
+			const disabled = "{{ disabled }}".split(" ");
+
+			function updateButton() {
+				if (textarea.value.trim() === "") {
+					btn().setAttribute("disabled", "");
+					btn().classList.remove(...enabled);
+					btn().classList.add(...disabled);
+				} else {
+					btn().removeAttribute("disabled");
+					btn().classList.remove(...disabled);
+					btn().classList.add(...enabled);
+				}
+			}
+
+			textarea.addEventListener("keydown", ev=>{
+				if (textarea.value.length > 128) {
+					if (ev.key != "Backspace") {
+						ev.preventDefault()
+					}
+				}
+			})
+			textarea.addEventListener("input", updateButton);
+		</script>
+	</form>
+}

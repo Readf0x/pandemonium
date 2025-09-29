@@ -51,7 +51,12 @@ func Setup(db *sql.DB) {
 			expiry text not null,
 			primary key (user_id, token),
 			foreign key(user_id) references users(id)
-		)
+		);
+		create table if not exists passwords (
+			user_id text primary key,
+			hash blob not null,
+			foreign key(user_id) references users(id)
+		);
 	`)
 	if err != nil {
 		log.Fatal(err)

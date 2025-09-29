@@ -43,3 +43,11 @@ func Trunc64(n int64) string {
 	}
 	return numstr
 }
+
+func Encode(source string) (fin string) {
+	for _, r := range []rune(source) {
+		fmt.Printf("%d, %c\n",r,r)
+		fin += fmt.Sprintf("\\u%04X", r)
+	}
+	return
+}

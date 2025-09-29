@@ -1,7 +1,9 @@
 package database
 
 import (
+	"fmt"
 	"slander/internal/systems"
+	"strings"
 	"time"
 )
 
@@ -163,5 +165,32 @@ func GetPage(size int, page int) (posts []systems.Post, err error) {
 	}
 
 	err = rows.Err()
+	return
+}
+
+func EditPost(body string, id systems.PostID) (err error) {
+	row := DB.QueryRow("select body from posts where id = ?", id)
+	var current string
+	err = row.Scan(&current)
+	if err != nil {
+		return
+	}
+	curw := strings.Split(current, " ")
+	words := strings.Split(body, " ")
+	changeCnt := 0
+	if len(curw) != len(words) {
+		err = fmt.Errorf("Incorrect word count!")
+		return
+	}
+	for i, w := range words {
+		if curw[i] != w {
+			changeCnt++
+		}
+	}
+	if changeCnt > 1 {
+		err = fmt.Errorf("Too many changes!")
+		return
+	}
+	_, err = DB.Exec("update posts set body = ? where id = ?", body, id)
 	return
 }

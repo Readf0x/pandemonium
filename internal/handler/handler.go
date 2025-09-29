@@ -104,12 +104,12 @@ func HTMX_Handler(w http.ResponseWriter, r *http.Request) {
 	case "createpost":
 		err := CreatePost(r)
 		if err != nil {
-			components.PostSendButton(err).Render(r.Context(), w)
+			components.PostSendButton(err, true).Render(r.Context(), w)
 			Error_Handler(err, w, r)
 			return
 		}
-		components.PostSendButton(systems.PostSent200).Render(r.Context(), w)
-		components.ResetPostSendButton(systems.PostSent200).Render(r.Context(), w)
+		components.PostSendButton(systems.PostSent200, true).Render(r.Context(), w)
+		components.ResetPostSendButton(systems.PostSent200, true).Render(r.Context(), w)
 	case "validate":
 		_, err := ValidateUser(r)
 		if err != nil {
@@ -119,6 +119,35 @@ func HTMX_Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("HX-Redirect", "/home")
+	case "signup":
+		r.ParseForm()
+		username := r.FormValue("username")
+		database.CreateUser(systems.User{
+			ID: systems.UserID(username),
+			DisplayName: r.FormValue("display_name"),
+			Picture: "NULL",
+		})
+		database.SavePassword(
+			database.CalcPassword(username, r.FormValue("password")),
+		)
+	case "login":
+		r.ParseForm()
+		username := r.FormValue("username")
+		id := systems.UserID(username)
+		hash := database.CalcPassword(username, r.FormValue("password"))
+		b, err := database.CheckPassword(id, hash)
+		if !b || err != nil {
+			components.LoginButton(err).Render(r.Context(), w)
+		} else {
+			token, err := database.GenerateToken(id)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			w.Header().Set("HX-Retarget", "#returnScript")
+			w.Header().Set("HX-Reswap", "outerHTML")
+			components.LogIn(id, token).Render(r.Context(), w)
+		}
 	}
 }
 
@@ -141,6 +170,10 @@ func ValidateUser(r *http.Request) (id systems.UserID, err error) {
 func CreatePost(r *http.Request) (err error) {
 	id, err := ValidateUser(r)
 	body := r.FormValue("body")
+	if systems.SpeechFilter.IsProfane(body) {
+		err = fmt.Errorf("This content may violate our terms of service.")
+		return
+	}
 	if len(body) > 128 {
 		err = fmt.Errorf("Too many characters")
 		return
@@ -214,14 +247,28 @@ func PostAction(path []string, w http.ResponseWriter, r *http.Request) {
 	case "editmode":
 		w.Header().Set("HX-Retarget", fmt.Sprintf("#post%d .body", postID))
 		w.Header().Set("HX-Reswap", "innerHTML")
-		components.EditModeBody(r.FormValue("body")).Render(r.Context(), w)
+		components.EditModeBody(r.FormValue("body"), postID).Render(r.Context(), w)
+	case "edit":
+		body := r.FormValue("body")
+		if systems.SpeechFilter.IsProfane(body) {
+			Error_Handler(fmt.Errorf("This content may violate our terms of service."), w, r)
+			return
+		}
+		err := database.EditPost(body, postID)
+		if err != nil {
+			Error_Handler(err, w, r)
+			return
+		}
+		w.Header().Set("HX-Retarget", "#editBody")
+		w.Header().Set("HX-Reswap", "outerHTML")
+		fmt.Fprint(w, body)
 	}
 }
 
 func Reset_Handler(path []string, w http.ResponseWriter, r *http.Request) {
 	switch path[2] {
 	case "postSendButton":
-		components.PostSendButton(nil).Render(r.Context(), w)
+		components.PostSendButton(nil, true).Render(r.Context(), w)
 	case "errorBanner":
 		components.ErrorBanner(nil).Render(r.Context(), w)
 	}
