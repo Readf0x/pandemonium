@@ -65,13 +65,17 @@ script InputKeydown(ev templ.JSExpression) {
 	}
 }
 
-templ Input(user systems.User, post_type systems.PostType) {
+templ Input(user systems.User, post_type systems.PostType, parent *systems.PostID) {
 	@UserPicture(user)
 	<form
 		class="flex flex-col flex-1"
 		hx-post="/htmx/createpost"
 		hx-swap="none"
-		hx-vals={ Validation(fmt.Sprintf(`type:"%s"`, post_type.String())) }
+		if post_type != systems.Original {
+			hx-vals={ Validation(fmt.Sprintf(`type:"%s",parent:%d`, post_type.String(), *parent)) }
+		} else {
+			hx-vals={ Validation(fmt.Sprintf(`type:"%s"`, post_type.String())) }
+		}
 	>
 		@PostHeader(user, nil) {
 			if post_type != systems.Original {
@@ -186,7 +190,7 @@ templ ResetPostSendButton(err error, oob bool) {
 
 templ HomePost(user systems.User) {
 	<div class="flex space-x-3 p-4 border-b border-gray-200 dark:border-gray-700">
-		@Input(user, systems.Original)
+		@Input(user, systems.Original, nil)
 	</div>
 }
 
@@ -198,16 +202,16 @@ templ FloatUI() {
 	</div>
 }
 
-templ FloatRepost(user systems.User) {
+templ FloatRepost(parent systems.Post, user systems.User) {
 	@FloatUI() {
-		@Input(user, systems.Repost)
+		@Input(user, systems.Repost, &parent.ID)
 	}
 }
 
 templ FloatReply(parent systems.Post, user systems.User) {
 	@FloatUI() {
 		@Reply(parent, user) {
-			@Input(user, systems.Comment)
+			@Input(user, systems.Comment, &parent.ID)
 		}
 	}
 }

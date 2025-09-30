@@ -46,6 +46,7 @@ type Post struct {
 	ID           PostID
 	Parent       PostID
 	Owner        UserID
+	PostType     PostType
 	OriginalBody string
 	Body         string
 	Likes        int32

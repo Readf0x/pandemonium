@@ -197,11 +197,28 @@ func CreatePost(r *http.Request) (userID systems.UserID, postID systems.PostID, 
 		err = fmt.Errorf("Empty post body")
 		return
 	}
-	postID, err = database.CreatePost(systems.Post{
-		Owner: userID,
-		Body:  body,
-		Time:  time.Now(),
-	}, systems.Original)
+	post_type := systems.PostTypeFromString(r.FormValue("type"))
+	if post_type == systems.Original {
+		postID, err = database.CreatePost(systems.Post{
+			Owner:    userID,
+			Body:     body,
+			Time:     time.Now(),
+			PostType: systems.Original,
+		})
+	} else {
+		p := r.FormValue("parent")
+		parent, err := strconv.ParseInt(p, 10, 64)
+		if err != nil {
+			return userID, postID, err
+		}
+		postID, err = database.CreatePost(systems.Post{
+			Owner:    userID,
+			Body:     body,
+			Time:     time.Now(),
+			Parent:   systems.PostID(parent),
+			PostType: post_type,
+		})
+	}
 	return
 }
 
