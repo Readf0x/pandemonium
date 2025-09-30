@@ -117,13 +117,14 @@ func QueryLike(user systems.UserID, post systems.PostID) (liked bool, err error)
 	return
 }
 
-func DeletePost(id systems.PostID) (err error) {
-	_, err = DB.Exec("delete from posts where id = ?", id)
+func QueryRepost(user systems.UserID, post systems.PostID) (reposted bool, err error) {
+	row := DB.QueryRow("select exists(select 1 from posts where owner = ? and parent = ? and post_type = \"repost\")", user, post)
+	err = row.Scan(&reposted)
 	return
 }
 
-func IncrementShares(id systems.PostID) (err error) {
-	_, err = DB.Exec("update posts set shares = shares + 1 where id = ?", id)
+func DeletePost(id systems.PostID) (err error) {
+	_, err = DB.Exec("delete from posts where id = ?", id)
 	return
 }
 

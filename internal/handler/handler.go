@@ -120,9 +120,11 @@ func HTMX_Handler(w http.ResponseWriter, r *http.Request) {
 			Error_Handler(err, w, r)
 			return
 		}
+		w.Header().Set("HX-Retarget", "#newPost")
+		w.Header().Set("HX-Reswap", "outerHTML")
 		components.PostSendButton(systems.PostSent200, true).Render(r.Context(), w)
 		components.ResetPostSendButton(systems.PostSent200, true).Render(r.Context(), w)
-		components.Post(user, post, true).Render(r.Context(), w)
+		components.NewPost(components.Post(user, post)).Render(r.Context(), w)
 	case "validate":
 		_, err := ValidateUser(r)
 		if err != nil {
@@ -191,6 +193,10 @@ func CreatePost(r *http.Request) (userID systems.UserID, postID systems.PostID, 
 		err = fmt.Errorf("Too many characters")
 		return
 	}
+	if strings.Trim(body, " \n") == "" {
+		err = fmt.Errorf("Empty post body")
+		return
+	}
 	postID, err = database.CreatePost(systems.Post{
 		Owner: userID,
 		Body:  body,
@@ -213,6 +219,18 @@ func PostAction(path []string, w http.ResponseWriter, r *http.Request) {
 	}
 	switch path[3] {
 	case "comment":
+		user, err := database.GetUser(userID)
+		if err != nil {
+			Error_Handler(err, w, r)
+			return
+		}
+		post, err := database.GetPost(postID)
+		if err != nil {
+			Error_Handler(err, w, r)
+			return
+		}
+		components.FloatReply(post, user).Render(r.Context(), w)
+	case "repost":
 	case "like":
 		err := database.LikePost(userID, postID)
 		if err != nil {
@@ -224,6 +242,7 @@ func PostAction(path []string, w http.ResponseWriter, r *http.Request) {
 			Error_Handler(err, w, r)
 			return
 		}
+		w.Header().Set("HX-Reswap", "outerHTML")
 		components.PostActionButton(fmt.Sprintf("/htmx/postaction/%d/%s", postID, "unlike"), "heart-fill", count, "text-red-400 dark:text-red-500").Render(r.Context(), w)
 	case "unlike":
 		err := database.UnlikePost(userID, postID)
@@ -236,6 +255,7 @@ func PostAction(path []string, w http.ResponseWriter, r *http.Request) {
 			Error_Handler(err, w, r)
 			return
 		}
+		w.Header().Set("HX-Reswap", "outerHTML")
 		components.PostActionButton(fmt.Sprintf("/htmx/postaction/%d/%s", postID, "like"), "heart", count, "hover:text-red-400 dark:hover:text-red-500").Render(r.Context(), w)
 	case "delete":
 		row := database.DB.QueryRow("select owner from posts where id = ?", postID)
@@ -288,5 +308,7 @@ func Reset_Handler(path []string, w http.ResponseWriter, r *http.Request) {
 		components.PostSendButton(nil, true).Render(r.Context(), w)
 	case "errorBanner":
 		components.ErrorBanner(nil).Render(r.Context(), w)
+	case "floatUI":
+		fmt.Fprint(w, `<div id="postInput" hx-swap-oob="true"></div>`)
 	}
 }

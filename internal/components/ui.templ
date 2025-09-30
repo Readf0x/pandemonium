@@ -35,50 +35,65 @@ templ UserPicture(user systems.User) {
 	<img src={ user.Picture } class="h-12 w-12 rounded-full"/>
 }
 
-templ Input(user systems.User) {
+script UpdateButtonJS(ev templ.JSExpression, enabled []string, disabled []string) {
+	const input = htmx.closest(ev.target, "form")
+	const textarea = ev.target
+	const btn = htmx.find(input, "#postSendButton")
+
+	if (textarea.value.trim() === "") {
+		btn.setAttribute("disabled", "")
+		btn.classList.remove(...enabled)
+		btn.classList.add(...disabled)
+	} else {
+		btn.removeAttribute("disabled")
+		btn.classList.remove(...disabled)
+		btn.classList.add(...enabled)
+	}
+}
+
+var UpdateButton = UpdateButtonJS(
+	templ.JSExpression("event"),
+	strings.Split(enabled, " "),
+	strings.Split(disabled, " "),
+)
+
+script InputKeydown(ev templ.JSExpression) {
+	if (ev.target.value.length > 128) {
+		if (ev.key != "Backspace") {
+			ev.preventDefault()
+		}
+	}
+}
+
+templ Input(user systems.User, post_type systems.PostType) {
 	@UserPicture(user)
 	<form
 		class="flex flex-col flex-1"
 		hx-post="/htmx/createpost"
 		hx-swap="none"
-		hx-vals={ Validation("") }
+		hx-vals={ Validation(fmt.Sprintf(`type:"%s"`, post_type.String())) }
 	>
 		@PostHeader(user, nil) {
+			if post_type != systems.Original {
+				<button
+					type="button"
+					hx-post="/htmx/reset/floatUI"
+					hx-trigger="click"
+					class="flex h-6 pl-2 pr-2 rounded-full text-sm items-center bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 hover:dark:bg-gray-700 cursor-pointer"
+				>
+					@Icon("x-lg")
+					<span>Cancel</span>
+				</button>
+			}
 			@PostSendButton(nil, false)
 		}
 		<textarea
 			id="postTextArea"
 			name="body"
+			hx-on:keydown={ InputKeydown(templ.JSExpression("event")) }
+			hx-on:input={ UpdateButton }
 			class="flex-1 mt-1 text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-sm"
-		></textarea>
-		<script>
-			const btn = ()=>document.querySelector("#postSendButton.post");
-			const textarea = document.querySelector("#postTextArea");
-
-			const enabled = "{{ enabled }}".split(" ");
-			const disabled = "{{ disabled }}".split(" ");
-
-			function updateButton() {
-				if (textarea.value.trim() === "") {
-					btn().setAttribute("disabled", "");
-					btn().classList.remove(...enabled);
-					btn().classList.add(...disabled);
-				} else {
-					btn().removeAttribute("disabled");
-					btn().classList.remove(...disabled);
-					btn().classList.add(...enabled);
-				}
-			}
-
-			textarea.addEventListener("keydown", ev=>{
-				if (textarea.value.length > 128) {
-					if (ev.key != "Backspace") {
-						ev.preventDefault()
-					}
-				}
-			})
-			textarea.addEventListener("input", updateButton);
-		</script>
+		/>
 		// reset after successful post
 		@ResetPostSendButton(nil, false)
 	</form>
@@ -112,7 +127,7 @@ templ ErrorBanner(err error) {
 				setTimeout(()=>{
 					htmx.ajax("GET", "/htmx/reset/errorBanner", {target:"#errorBanner", swap:"outerHTML"});
 					htmx.ajax("GET", "/htmx/reset/postSendButton", {target:"#postSendButton", swap:"outerHTML"});
-				} , 1000);
+				}, 3000);
 			</script>
 		</div>
 	} else {
@@ -156,8 +171,8 @@ templ PostSendButton(err error, oob bool) {
 templ ResetPostSendButton(err error, oob bool) {
 		if err == systems.PostSent200 {
 			<script id="resetPostSendButton" hx-swap-oob="true">
-				textarea.value = "";
-				setTimeout(()=>htmx.ajax("GET", "/htmx/reset/postSendButton", {target:"#postSendButton", swap:"outerHTML"}) , 1000);
+				htmx.find(htmx.closest(htmx.find("#postSendButton"), "form"), "textarea").value = ""
+				setTimeout(()=>htmx.ajax("GET", "/htmx/reset/postSendButton", {target:"#postSendButton", swap:"outerHTML"}) , 3000);
 			</script>
 		} else {
 			<script
@@ -171,26 +186,30 @@ templ ResetPostSendButton(err error, oob bool) {
 
 templ HomePost(user systems.User) {
 	<div class="flex space-x-3 p-4 border-b border-gray-200 dark:border-gray-700">
-		@Input(user)
+		@Input(user, systems.Original)
 	</div>
 }
 
-templ FloatPost(user systems.User) {
-	<div id="postInput" class="fixed flex inset-0 justify-center items-start">
+templ FloatUI() {
+	<div id="postInput" hx-swap-oob="true" class="fixed flex inset-0 justify-center items-start bg-gray-950/50 z-55">
 		<div class="flex space-x-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-sm w-2xl p-4 mt-5">
-			@Input(user)
+			{ children... }
 		</div>
 	</div>
+}
+
+templ FloatRepost(user systems.User) {
+	@FloatUI() {
+		@Input(user, systems.Repost)
+	}
 }
 
 templ FloatReply(parent systems.Post, user systems.User) {
-	<div id="postInput" class="fixed flex inset-0 justify-center items-start">
-		<div class="flex space-x-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-sm w-2xl p-4 mt-5">
-			@Reply(parent, user) {
-				@Input(user)
-			}
-		</div>
-	</div>
+	@FloatUI() {
+		@Reply(parent, user) {
+			@Input(user, systems.Comment)
+		}
+	}
 }
 
 script TogglePostElt(selector string, id systems.PostID) {
@@ -202,15 +221,10 @@ script TogglePostElts(selector string, id systems.PostID) {
 	})
 }
 
-templ Post(user systems.User, post systems.Post, oob bool) {
+templ Post(user systems.User, post systems.Post) {
 	<div
-		class="flex space-x-3 p-4 border-b border-gray-200 dark:border-gray-700"
-		if oob {
-			hx-swap-oob="true"
-			id="newPost"
-		} else {
-			id={ fmt.Sprintf("post%d", post.ID) }
-		}
+		class="flex space-x-3 p-4 border-b border-gray-200 dark:border-gray-700 relative"
+		id={ fmt.Sprintf("post%d", post.ID) }
 	>
 		// Avatar
 		{{
@@ -299,6 +313,11 @@ templ Post(user systems.User, post systems.Post, oob bool) {
 	</div>
 }
 
+templ NewPost(post templ.Component) {
+	<div id="newPost" class="hidden"></div>
+	@post
+}
+
 templ MenuButton(endpoint string, icon string, name string, postEltID string) {
 	<li
 		hx-post={ endpoint }
@@ -316,7 +335,7 @@ templ PostActionButton(endpoint string, icon string, count int32, classes string
 		<button
 			hx-post={ endpoint }
 			hx-trigger="click"
-			hx-swap="outerHTML"
+			hx-swap="none"
 			hx-vals={ Validation("") }
 			class={ "flex space-x-1 items-center cursor-pointer px-2 " + classes }
 		>
@@ -443,7 +462,7 @@ templ PostList(user systems.User, size int, page int, filters string) {
 		@ErrorBanner(err)
 	}
 	for _, post := range posts {
-		@Post(user, post, false)
+		@Post(user, post)
 	}
 	if end {
 		<div class="flex flex-col items-center py-5 text-gray-400 dark:text-gray-600">

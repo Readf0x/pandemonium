@@ -24,9 +24,9 @@
      inkscape:deskcolor="#505050"
      inkscape:document-units="mm"
      showguides="true"
-     inkscape:zoom="5.6568543"
-     inkscape:cx="-1.5026019"
-     inkscape:cy="22.008699"
+     inkscape:zoom="6.150356"
+     inkscape:cx="17.316071"
+     inkscape:cy="21.868653"
      inkscape:window-width="1912"
      inkscape:window-height="1040"
      inkscape:window-x="0"
@@ -49,17 +49,25 @@
   <g
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
-     id="layer1">
+     id="layer1"
+     transform="translate(2e-7,1.1331141)">
+    <rect
+       style="fill:#45556c;fill-opacity:1;stroke-width:0.370417;paint-order:stroke fill markers"
+       id="rect1"
+       width="12.7"
+       height="12.7"
+       x="-2e-07"
+       y="-1.1331141" />
     <circle
-       style="opacity:1;fill:#ffffff;stroke-width:0.417938;paint-order:stroke fill markers"
+       style="opacity:1;fill:#cad5e2;stroke-width:0.417938;paint-order:stroke fill markers;fill-opacity:1"
        id="path2"
        cx="6.3499999"
        cy="2.608443"
        r="2.608443" />
     <path
        id="path3"
-       style="opacity:1;fill:#ffffff;stroke-width:0.417037;paint-order:stroke fill markers"
-       d="m 10.091557,8.9584427 c 0,0.9335836 0,3.7415573 0,3.7415573 0,0 -2.6087357,0 -3.7415571,0 -1.1494475,0 -3.7415571,0 -3.7415571,0 0,0 0,-2.8245998 0,-3.7415573 10e-8,-2.0664049 1.6751522,-3.7415571 3.7415571,-3.7415571 2.0664049,0 3.7415571,1.6751522 3.7415571,3.7415571 z"
-       sodipodi:nodetypes="scscsss" />
+       style="opacity:1;fill:#cad5e2;stroke-width:0.417037;paint-order:stroke fill markers;fill-opacity:1"
+       d="m 10.091557,8.9584427 0,2.6084433 H 2.6084428 l 0,-2.6084433 c 0,-2.0664049 1.6751522,-3.7415571 3.7415571,-3.7415571 2.0664049,0 3.7415571,1.6751522 3.7415571,3.7415571 z"
+       sodipodi:nodetypes="sccsss" />
   </g>
 </svg>

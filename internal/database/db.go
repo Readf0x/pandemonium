@@ -33,7 +33,6 @@ func Setup(db *sql.DB) {
 			owner text not null,
 			original_body text not null,
 			body text not null,
-			shares integer not null default 0,
 			time string not null,
 			foreign key(parent) references posts(id),
 			foreign key(owner) references users(id) on delete cascade
