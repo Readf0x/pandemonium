@@ -50,6 +50,7 @@ type Post struct {
 	OriginalBody string
 	Body         string
 	Likes        int32
-	Shares       int32
+	Comments     int32
+	Reposts      int32
 	Time         time.Time
 }

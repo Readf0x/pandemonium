@@ -26,17 +26,16 @@ func GetPost(id systems.PostID) (systems.Post, error) {
 		owner         string
 		original_body string
 		body          string
-		shares        int32
 		timedate      string
 	)
 	if post_type != systems.Original {
-		row = DB.QueryRow("select parent, owner, original_body, body, shares, time from posts where id = ?", id)
-		if err := row.Scan(&parent, &owner, &original_body, &body, &shares, &timedate); err != nil {
+		row = DB.QueryRow("select parent, owner, original_body, body, time from posts where id = ?", id)
+		if err := row.Scan(&parent, &owner, &original_body, &body, &timedate); err != nil {
 			return systems.Post{}, err
 		}
 	} else {
-		row = DB.QueryRow("select owner, original_body, body, shares, time from posts where id = ?", id)
-		if err := row.Scan(&owner, &original_body, &body, &shares, &timedate); err != nil {
+		row = DB.QueryRow("select owner, original_body, body, time from posts where id = ?", id)
+		if err := row.Scan(&owner, &original_body, &body, &timedate); err != nil {
 			return systems.Post{}, err
 		}
 	}
@@ -49,6 +48,14 @@ func GetPost(id systems.PostID) (systems.Post, error) {
 	if err != nil {
 		return systems.Post{}, err
 	}
+	comments, err := GetCommentCount(id2)
+	if err != nil {
+		return systems.Post{}, err
+	}
+	reposts, err := GetRepostCount(id2)
+	if err != nil {
+		return systems.Post{}, err
+	}
 	return systems.Post{
 		ID:           id2,
 		Parent:       systems.PostID(parent),
@@ -57,7 +64,8 @@ func GetPost(id systems.PostID) (systems.Post, error) {
 		OriginalBody: original_body,
 		Body:         body,
 		Likes:        likes,
-		Shares:       shares,
+		Comments:     comments,
+		Reposts:      reposts,
 		Time:         t,
 	}, nil
 }
@@ -72,22 +80,20 @@ func CreatePost(post systems.Post) (id systems.PostID, err error) {
 	var res sql.Result
 	if post.PostType != systems.Original {
 		res, err = DB.Exec(
-			"insert into posts (parent, owner, original_body, body, shares, time, post_type) values (?, ?, ?, ?, ?, ?, ?)",
+			"insert into posts (parent, owner, original_body, body, time, post_type) values (?, ?, ?, ?, ?, ?, ?)",
 			post.Parent,
 			post.Owner,
 			post.Body,
 			post.Body,
-			post.Shares,
 			post.Time.Format(time.RFC3339),
 			post.PostType.String(),
 		)
 	} else {
 		res, err = DB.Exec(
-			"insert into posts (owner, original_body, body, shares, time, post_type) values (?, ?, ?, ?, ?, ?)",
+			"insert into posts (owner, original_body, body, time, post_type) values (?, ?, ?, ?, ?, ?)",
 			post.Owner,
 			post.Body,
 			post.Body,
-			post.Shares,
 			post.Time.Format(time.RFC3339),
 			post.PostType.String(),
 		)
@@ -119,9 +125,27 @@ func QueryLike(user systems.UserID, post systems.PostID) (liked bool, err error)
 	return
 }
 
+func GetRepostCount(post systems.PostID) (count int32, err error) {
+	row := DB.QueryRow("select count(*) from posts where parent = ? and post_type = \"repost\"", post)
+	err = row.Scan(&count)
+	return
+}
+
 func QueryRepost(user systems.UserID, post systems.PostID) (reposted bool, err error) {
 	row := DB.QueryRow("select exists(select 1 from posts where owner = ? and parent = ? and post_type = \"repost\")", user, post)
 	err = row.Scan(&reposted)
+	return
+}
+
+func GetCommentCount(post systems.PostID) (count int32, err error) {
+	row := DB.QueryRow("select count(*) from posts where parent = ? and post_type = \"comment\"", post)
+	err = row.Scan(&count)
+	return
+}
+
+func QueryComment(user systems.UserID, post systems.PostID) (commented bool, err error) {
+	row := DB.QueryRow("select exists(select 1 from posts where owner = ? and parent = ? and post_type = \"comment\")", user, post)
+	err = row.Scan(&commented)
 	return
 }
 
@@ -132,7 +156,7 @@ func DeletePost(id systems.PostID) (err error) {
 
 func GetPage(size int, page int, filters string) (posts []systems.Post, end bool, err error) {
 	rows, err := DB.Query(
-		fmt.Sprintf("select id, owner, post_type, original_body, body, shares, time from posts where %s order by time desc limit ? offset ?", filters),
+		fmt.Sprintf("select id, owner, post_type, original_body, body, time from posts where %s order by time desc limit ? offset ?", filters),
 		size+1,
 		page * size,
 	)
@@ -151,14 +175,13 @@ func GetPage(size int, page int, filters string) (posts []systems.Post, end bool
 
 		var (
 			id            systems.PostID
-			owner         string
+			owner         systems.UserID
 			post_type     string
 			original_body string
 			body          string
-			shares        int32
 			timedate      string
 		)
-		if err = rows.Scan(&id, &owner, &post_type, &original_body, &body, &shares, &timedate); err != nil {
+		if err = rows.Scan(&id, &owner, &post_type, &original_body, &body, &timedate); err != nil {
 			return
 		}
 
@@ -171,15 +194,24 @@ func GetPage(size int, page int, filters string) (posts []systems.Post, end bool
 		if err != nil {
 			return posts, end, err
 		}
+		comments, err := GetCommentCount(id)
+		if err != nil {
+			return posts, end, err
+		}
+		reposts, err := GetRepostCount(id)
+		if err != nil {
+			return posts, end, err
+		}
 
 		posts = append(posts, systems.Post{
-			ID:           systems.PostID(id),
-			Owner:        systems.UserID(owner),
+			ID:           id,
+			Owner:        owner,
 			PostType:     systems.PostTypeFromString(post_type),
 			OriginalBody: original_body,
 			Body:         body,
 			Likes:        likes,
-			Shares:       shares,
+			Comments:     comments,
+			Reposts:      reposts,
 			Time:         t,
 		})
 

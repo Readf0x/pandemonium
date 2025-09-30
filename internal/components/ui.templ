@@ -300,16 +300,30 @@ templ Post(user systems.User, post systems.Post) {
 					likeLink := "like"
 					likeStyle := "hover:text-red-400 dark:hover:text-red-500"
 					liked, err := database.QueryLike(user.ID, post.ID)
+					if err != nil {
+						return
+					}
 					if liked {
 						likeIcon = "heart-fill"
 						likeLink = "unlike"
 						likeStyle = "text-red-400 dark:text-red-500"
 					}
+
+					commentIcon := "chat"
+					commentStyle := "hover:text-blue-300 dark:hover:text-blue-500"
+					commented, err := database.QueryComment(user.ID, post.ID)
+					if err != nil {
+						return
+					}
+					if commented {
+						commentIcon = "chat-fill"
+						commentStyle = "text-blue-300 dark:text-blue-500"
+					}
 				}}
 				if err != nil {
 					@ErrorBanner(err)
 				}
-				@PostActionButton(fmt.Sprintf("/htmx/postaction/%d/comment", post.ID), "chat", 0, "hover:text-blue-300 dark:hover:text-blue-500")
+				@PostActionButton(fmt.Sprintf("/htmx/postaction/%d/comment", post.ID), commentIcon, post.Comments, commentStyle)
 				@PostActionButton(fmt.Sprintf("/htmx/postaction/%d/repost", post.ID), "repeat", 0, "hover:text-green-200 dark:hover:text-green-500")
 				@PostActionButton(fmt.Sprintf("/htmx/postaction/%d/%s", post.ID, likeLink), likeIcon, post.Likes, likeStyle)
 			</div>
